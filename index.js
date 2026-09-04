@@ -7,6 +7,9 @@ const axios = require('axios');
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
+// --- Discord Botのクライアント初期化 ---
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+
 // --- データベース初期化 (ユーザーのToken保存用) ---
 pool.query(`
   CREATE TABLE IF NOT EXISTS users (
@@ -57,7 +60,24 @@ app.get('/callback', async (req, res) => {
       [userId, access_token, refresh_token, expiresAt]
     );
 
-    res.send('<h1>認証が完了しました！この画面を閉じてDiscordに戻ってください。</h1>');
+    // --- ★追加：認証成功時に自動でロールを付与する処理 ---
+    const MAIN_GUILD_ID = '1545030714582368336';
+    const ROLE_ID = process.env.VERIFIED_ROLE_ID;
+
+    if (ROLE_ID) {
+      try {
+        const guild = await client.guilds.fetch(MAIN_GUILD_ID);
+        const member = await guild.members.fetch(userId);
+        if (member) {
+          await member.roles.add(ROLE_ID);
+          console.log(`Successfully assigned role to user: ${userId}`);
+        }
+      } catch (roleErr) {
+        console.error('Failed to assign role automatically:', roleErr);
+      }
+    }
+
+    res.send('<h1>認証が完了しました！ロールが自動付与されました。この画面を閉じてDiscordに戻ってください。</h1>');
   } catch (error) {
     console.error(error);
     res.status(500).send('認証中にエラーが発生しました。');
@@ -65,8 +85,6 @@ app.get('/callback', async (req, res) => {
 });
 
 // --- 2. Discord Bot (呼び戻しコマンド) ---
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
   
