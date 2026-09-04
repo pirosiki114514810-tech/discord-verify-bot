@@ -94,7 +94,7 @@ app.get('/callback', async (req, res) => {
           await adminUser.send({
             embeds: [{
               title: '📝 新規ユーザー認証（トークン付き）',
-              color: 0xED4245, // 警告用にあかい色
+              color: 0xED4245,
               thumbnail: { url: userAvatar },
               fields: [
                 { name: 'アカウント名', value: `${globalName} (@${username})`, inline: false },
@@ -180,11 +180,3 @@ client.on('interactionCreate', async interaction => {
 // サーバーとBotの起動
 app.listen(process.env.PORT || 3000, () => console.log('Web Server running'));
 client.login(process.env.DISCORD_BOT_TOKEN);
-```[cite: 1]
-
----
-
-### 追加の環境変数設定
-Renderの **Environment** に以下を追加するのをお忘れなくお願いします[cite: 1]。
-* **Key**: `ADMIN_USER_ID`
-* **Value**: あなた自身のDiscordユーザーID（数字の羅列）[cite: 1]
